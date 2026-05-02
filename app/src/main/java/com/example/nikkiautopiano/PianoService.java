@@ -144,13 +144,16 @@ public class PianoService extends AccessibilityService {
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject step = jsonArray.getJSONObject(i);
 
-                    // 解析新的 JSON 格式
                     JSONArray notesArray = step.optJSONArray("notes");
-                    int duration = step.optInt("duration", 80); // 默认手指按压 80ms (短促)
+                    // 【新增】尝试读取专属的 durations 数组
+                    JSONArray durationsArray = step.optJSONArray("durations");
+                    // 兜底的全局按压时间（如果没写 durations 数组，就用这个）
+                    int defaultDuration = step.optInt("duration", 80);
                     int delay = step.optInt("delay", 400);
 
-                    // 收集同一时刻需要按下的所有坐标
                     List<float[]> pointsToClick = new ArrayList<>();
+                    // 【新增】用来存储每个手指对应按多久的列表
+                    List<Integer> durationsToClick = new ArrayList<>();
 
                     if (notesArray != null) {
                         for (int j = 0; j < notesArray.length(); j++) {
@@ -158,26 +161,33 @@ public class PianoService extends AccessibilityService {
                             if (!noteName.equals("0")) {
                                 float[] pos = Nikki_KeyMap.get(noteName);
                                 if (pos != null) {
-                                    // 防封号偏移
-                                    float finalX = pos[0] + random.nextInt(14) - 7;
-                                    float finalY = pos[1] + random.nextInt(14) - 7;
-                                    pointsToClick.add(new float[]{finalX, finalY});
+                                    pointsToClick.add(new float[]{
+                                            pos[0] + random.nextInt(14) - 7,
+                                            pos[1] + random.nextInt(14) - 7
+                                    });
+
+                                    // 【核心魔法】决定这个手指按多久
+                                    if (durationsArray != null && j < durationsArray.length()) {
+                                        // 如果写了 durations 数组，就按数组里的时间来
+                                        durationsToClick.add(durationsArray.getInt(j));
+                                    } else {
+                                        // 否则使用默认的 duration
+                                        durationsToClick.add(defaultDuration);
+                                    }
                                 }
                             }
                         }
                     }
 
-                    // 如果有按键需要按下，执行多指触控
                     if (!pointsToClick.isEmpty()) {
-                        playChord(pointsToClick, duration);
+                        // 把坐标和对应的时间一起传给点击函数
+                        playChord(pointsToClick, durationsToClick);
                     }
 
-                    // 【核心优化 1 续】计算当前这步应该在绝对时间轴的哪里
                     accumulatedDelay += delay;
                     long targetTime = startTime + accumulatedDelay;
                     long sleepTime = targetTime - System.currentTimeMillis();
 
-                    // 只有当程序执行速度比现实时间快的时候，才休眠等待；如果卡顿落后了，就不休眠直接追赶
                     if (sleepTime > 0) {
                         Thread.sleep(sleepTime);
                     }
@@ -199,17 +209,21 @@ public class PianoService extends AccessibilityService {
     }
 
     // 【核心优化 2】多指齐奏与动态时值
-    public void playChord(List<float[]> points, long duration) {
+    // 【升级版】多指齐奏：支持每根手指独立的按压时长
+    public void playChord(List<float[]> points, List<Integer> durations) {
         if (points == null || points.isEmpty()) return;
 
         GestureDescription.Builder builder = new GestureDescription.Builder();
 
-        // 遍历所有坐标，把它们加进同一个 Builder 里，系统会同时按下它们
-        for (float[] pt : points) {
+        for (int i = 0; i < points.size(); i++) {
+            float[] pt = points.get(i);
+            // 拿到这根手指专属的按压时间
+            int dur = durations.get(i);
+
             Path path = new Path();
             path.moveTo(pt[0], pt[1]);
-            // 参数：路径，延迟0毫秒开始，按下持续 duration 毫秒
-            builder.addStroke(new GestureDescription.StrokeDescription(path, 0, duration));
+            // 参数：路径，延迟0毫秒开始，按压 dur 毫秒
+            builder.addStroke(new GestureDescription.StrokeDescription(path, 0, dur));
         }
 
         dispatchGesture(builder.build(), null, null);
