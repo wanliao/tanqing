@@ -65,9 +65,16 @@ public class MainActivity extends AppCompatActivity {
                 }
                 reader.close();
 
-                // 将读取到的 JSON 字符串发给后台服务
-                PianoService.instance.updateScore(sb.toString());
-                Toast.makeText(this, "✅ JSON乐谱加载成功！快切回游戏播放吧", Toast.LENGTH_LONG).show();
+                String jsonScore = sb.toString();
+                // 更新服务里的乐谱
+                PianoService.instance.updateScore(jsonScore);
+
+                // 【新增】跳转到测试播放界面
+                Intent testIntent = new Intent(this, TestPlayActivity.class);
+                testIntent.putExtra("json_score", jsonScore);
+                startActivity(testIntent);
+
+                Toast.makeText(this, "✅ 加载成功！已进入测试模式", Toast.LENGTH_SHORT).show();
 
             } catch (Exception e) {
                 e.printStackTrace();
