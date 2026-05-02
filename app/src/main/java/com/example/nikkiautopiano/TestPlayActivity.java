@@ -50,6 +50,8 @@ public class TestPlayActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+        setImmersiveStatusBar();
         // 【新增】强制锁定当前界面为竖屏
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
@@ -61,7 +63,7 @@ public class TestPlayActivity extends AppCompatActivity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.parseColor("#121212"));
         root.setGravity(Gravity.CENTER_HORIZONTAL);
-
+        root.setPadding(0, getStatusBarHeight(), 0, 0);
         // 2. 状态提示文本
         statusTv = new TextView(this);
         statusTv.setText("加载音效中...");
@@ -82,7 +84,7 @@ public class TestPlayActivity extends AppCompatActivity {
         lyricTv.setBackgroundColor(Color.parseColor("#222222"));
         lyricTv.setTextColor(Color.parseColor("#00E676"));
         lyricTv.setTextSize(24f);
-        lyricTv.setText("等待播放...\n(歌词将在此处显示)");
+        lyricTv.setText("等待播放...\n(如果歌词将在此处显示)");
 
         root.addView(lyricTv);
 
@@ -127,20 +129,45 @@ public class TestPlayActivity extends AppCompatActivity {
 
     private void loadScoreData() {
         SharedPreferences sp = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-        String pathStr = sp.getString(KEY_SCORE_PATH, "");
-        if (!TextUtils.isEmpty(pathStr)) {
+        // 获取文件名
+        String fileName = sp.getString(KEY_SCORE_PATH, "");
+        if (!TextUtils.isEmpty(fileName)) {
             try {
-                jsonScore = readTextFromUri(Uri.parse(pathStr));
+                // 使用新的读取方法
+                jsonScore = readTextFromAssets(fileName);
             } catch (Exception e) {
                 e.printStackTrace();
                 Toast.makeText(this, "文件读取失败", Toast.LENGTH_SHORT).show();
             }
         }
     }
+// 1. 同样在 TestPlayActivity 类的底部，加入沉浸式辅助方法：
 
-    private String readTextFromUri(Uri uri) throws Exception {
+    private void setImmersiveStatusBar() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            android.view.Window window = getWindow();
+            window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            window.getDecorView().setSystemUiVisibility(
+                    android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                            | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    // 【特有】因为这个界面是黑色的，如果是白底可能还需要加亮色状态栏文字的 Flag
+            );
+            window.addFlags(android.view.WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(Color.TRANSPARENT);
+        }
+    }
+
+    private int getStatusBarHeight() {
+        int result = 0;
+        int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+        if (resourceId > 0) {
+            result = getResources().getDimensionPixelSize(resourceId);
+        }
+        return result == 0 ? 80 : result;
+    }
+    private String readTextFromAssets(String fileName) throws Exception {
         StringBuilder stringBuilder = new StringBuilder();
-        try (InputStream inputStream = getContentResolver().openInputStream(uri);
+        try (InputStream inputStream = getAssets().open("zhiyuan/" + fileName);
              BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
             String line;
             while ((line = reader.readLine()) != null) {

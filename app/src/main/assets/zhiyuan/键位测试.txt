@@ -1,0 +1,23 @@
+[
+  { "notes": ["B1"], "durations": [200], "delay": 200, "lyric": "低音1" },
+  { "notes": ["B2"], "durations": [200], "delay": 200, "lyric": "低音2" },
+  { "notes": ["B3"], "durations": [200], "delay": 200, "lyric": "低音3" },
+  { "notes": ["B4"], "durations": [200], "delay": 200, "lyric": "低音4" },
+  { "notes": ["B5"], "durations": [200], "delay": 200, "lyric": "低音5" },
+  { "notes": ["B6"], "durations": [200], "delay": 200, "lyric": "低音6" },
+  { "notes": ["B7"], "durations": [200], "delay": 200, "lyric": "低音7" },
+  { "notes": ["M1"], "durations": [200], "delay": 200, "lyric": "中音1" },
+  { "notes": ["M2"], "durations": [200], "delay": 200, "lyric": "中音2" },
+  { "notes": ["M3"], "durations": [200], "delay": 200, "lyric": "中音3" },
+  { "notes": ["M4"], "durations": [200], "delay": 200, "lyric": "中音4" },
+  { "notes": ["M5"], "durations": [200], "delay": 200, "lyric": "中音5" },
+  { "notes": ["M6"], "durations": [200], "delay": 200, "lyric": "中音6" },
+  { "notes": ["M7"], "durations": [200], "delay": 200, "lyric": "中音7" },
+  { "notes": ["T1"], "durations": [200], "delay": 200, "lyric": "高音1" },
+  { "notes": ["T2"], "durations": [200], "delay": 200, "lyric": "高音2" },
+  { "notes": ["T3"], "durations": [200], "delay": 200, "lyric": "高音3" },
+  { "notes": ["T4"], "durations": [200], "delay": 200, "lyric": "高音4" },
+  { "notes": ["T5"], "durations": [200], "delay": 200, "lyric": "高音5" },
+  { "notes": ["T6"], "durations": [200], "delay": 200, "lyric": "高音6" },
+  { "notes": ["T7"], "durations": [200], "delay": 200, "lyric": "高音7" }
+]

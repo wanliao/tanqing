@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+
     android:orientation="vertical"
     android:padding="20dp"
     android:gravity="center_horizontal">
@@ -55,11 +56,29 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="20dp"
         android:text="启动弹琴悬浮窗" />
+
     <Button
         android:id="@+id/btn_test_play"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:text="进入测试曲谱界面" />
+    <Button
+        android:id="@+id/btn_download_score"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:layout_gravity="center_horizontal"
+        android:text="从云端获取更多曲谱" />
+
+    <Switch
+        android:id="@+id/switch_calibration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:layout_gravity="center_horizontal"
+        android:text="允许长按悬浮窗校准坐标  "
+        android:textColor="#333333"
+        android:textSize="16sp" />
 
 </LinearLayout>
