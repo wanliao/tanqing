@@ -2,13 +2,17 @@ package com.example.nikkiautopiano;
 
 import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.GestureDescription;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Path;
 import android.graphics.PixelFormat;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -19,6 +23,9 @@ import android.widget.Toast;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,7 +40,11 @@ public class PianoService extends AccessibilityService {
     private Random random = new Random();
 
     private String currentScoreStr = "[]";
-    private boolean isPlaying = false; // 增加播放状态标记
+    private boolean isPlaying = false;
+
+    // 用于读取保存的配置
+    private static final String PREF_NAME = "PianoAppConfig";
+    private static final String KEY_SCORE_PATH = "ScorePath";
 
     @Override
     protected void onServiceConnected() {
@@ -50,10 +61,6 @@ public class PianoService extends AccessibilityService {
         }
         instance = null;
         return super.onUnbind(intent);
-    }
-
-    public void updateScore(String newScore) {
-        this.currentScoreStr = newScore;
     }
 
     private void showFloatingWindow() {
@@ -115,11 +122,25 @@ public class PianoService extends AccessibilityService {
         });
 
         floatingButton.setOnClickListener(v -> {
-            if (currentScoreStr.equals("[]")) {
+            if (isPlaying) return;
+
+            // 【核心修复】点击开始时，动态读取最新的曲谱文件内容
+            SharedPreferences sharedPreferences = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            String pathStr = sharedPreferences.getString(KEY_SCORE_PATH, "");
+
+            if (TextUtils.isEmpty(pathStr)) {
                 Toast.makeText(this, "请先回 App 选择一个乐谱！", Toast.LENGTH_SHORT).show();
                 return;
             }
-            if (isPlaying) return; // 防止重复点击
+
+            try {
+                // 读取文件内容转换为字符串
+                currentScoreStr = readTextFromUri(Uri.parse(pathStr));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "文件读取失败，请重新选择", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
             floatingButton.setText("3秒后...");
             floatingButton.setEnabled(false);
@@ -129,6 +150,19 @@ public class PianoService extends AccessibilityService {
         windowManager.addView(floatingButton, params);
     }
 
+    // 【新增】万能读取方法，用于将 Uri 转换成真实的 JSON 字符串
+    private String readTextFromUri(Uri uri) throws Exception {
+        StringBuilder stringBuilder = new StringBuilder();
+        try (InputStream inputStream = getContentResolver().openInputStream(uri);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                stringBuilder.append(line);
+            }
+        }
+        return stringBuilder.toString();
+    }
+
     private void playSongFromJson() {
         isPlaying = true;
         String jsonStr = currentScoreStr;
@@ -136,23 +170,18 @@ public class PianoService extends AccessibilityService {
         new Thread(() -> {
             try {
                 JSONArray jsonArray = new JSONArray(jsonStr);
-
-                // 【核心优化 1】时间戳比对法，解决越弹越慢的问题
-                long startTime = System.currentTimeMillis(); // 记录开场时间
-                long accumulatedDelay = 0; // 累计应有的延迟
+                long startTime = System.currentTimeMillis();
+                long accumulatedDelay = 0;
 
                 for (int i = 0; i < jsonArray.length(); i++) {
                     JSONObject step = jsonArray.getJSONObject(i);
 
                     JSONArray notesArray = step.optJSONArray("notes");
-                    // 【新增】尝试读取专属的 durations 数组
                     JSONArray durationsArray = step.optJSONArray("durations");
-                    // 兜底的全局按压时间（如果没写 durations 数组，就用这个）
                     int defaultDuration = step.optInt("duration", 80);
                     int delay = step.optInt("delay", 400);
 
                     List<float[]> pointsToClick = new ArrayList<>();
-                    // 【新增】用来存储每个手指对应按多久的列表
                     List<Integer> durationsToClick = new ArrayList<>();
 
                     if (notesArray != null) {
@@ -166,12 +195,9 @@ public class PianoService extends AccessibilityService {
                                             pos[1] + random.nextInt(14) - 7
                                     });
 
-                                    // 【核心魔法】决定这个手指按多久
                                     if (durationsArray != null && j < durationsArray.length()) {
-                                        // 如果写了 durations 数组，就按数组里的时间来
                                         durationsToClick.add(durationsArray.getInt(j));
                                     } else {
-                                        // 否则使用默认的 duration
                                         durationsToClick.add(defaultDuration);
                                     }
                                 }
@@ -180,7 +206,6 @@ public class PianoService extends AccessibilityService {
                     }
 
                     if (!pointsToClick.isEmpty()) {
-                        // 把坐标和对应的时间一起传给点击函数
                         playChord(pointsToClick, durationsToClick);
                     }
 
@@ -199,7 +224,6 @@ public class PianoService extends AccessibilityService {
                 );
             }
 
-            // 演奏结束复位
             new Handler(Looper.getMainLooper()).post(() -> {
                 isPlaying = false;
                 floatingButton.setText("▶ 开始");
@@ -208,8 +232,6 @@ public class PianoService extends AccessibilityService {
         }).start();
     }
 
-    // 【核心优化 2】多指齐奏与动态时值
-    // 【升级版】多指齐奏：支持每根手指独立的按压时长
     public void playChord(List<float[]> points, List<Integer> durations) {
         if (points == null || points.isEmpty()) return;
 
@@ -217,12 +239,9 @@ public class PianoService extends AccessibilityService {
 
         for (int i = 0; i < points.size(); i++) {
             float[] pt = points.get(i);
-            // 拿到这根手指专属的按压时间
             int dur = durations.get(i);
-
             Path path = new Path();
             path.moveTo(pt[0], pt[1]);
-            // 参数：路径，延迟0毫秒开始，按压 dur 毫秒
             builder.addStroke(new GestureDescription.StrokeDescription(path, 0, dur));
         }
 
@@ -230,6 +249,7 @@ public class PianoService extends AccessibilityService {
     }
 
     private void initializeKeyMap() {
+        // [用户保留数据：一加15 的特殊坐标偏移]
         float StartX = 626f;
         float ColGap = 240.5f;
         float StartYTop = 620f;

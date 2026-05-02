@@ -1,84 +1,161 @@
 package com.example.nikkiautopiano;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.widget.Button;
-import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import java.io.BufferedReader;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 
 public class MainActivity extends AppCompatActivity {
+
+    private Button btnAccessibility;
+    private TextView tvScorePath;
+    private Button btnSelectScore;
+    private Button btnStartService;
+    private Button btnTestPlay;
+
+    private static final int REQUEST_CODE_SELECT_FILE = 1001;
+    private static final String PREF_NAME = "PianoAppConfig";
+    private static final String KEY_SCORE_PATH = "ScorePath";
+
+    private SharedPreferences sharedPreferences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
-        // 1. 检查悬浮窗权限
-        if (!Settings.canDrawOverlays(this)) {
-            Intent intent = new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    Uri.parse("package:" + getPackageName()));
-            startActivity(intent);
-            Toast.makeText(this, "请先开启悬浮窗权限！", Toast.LENGTH_LONG).show();
+        sharedPreferences = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+
+        initViews();
+        loadSavedConfig();
+        setupListeners();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        updateAccessibilityButtonState();
+    }
+
+    private void initViews() {
+        btnAccessibility = findViewById(R.id.btn_accessibility);
+        tvScorePath = findViewById(R.id.tv_score_path);
+        btnSelectScore = findViewById(R.id.btn_select_score);
+        btnStartService = findViewById(R.id.btn_start_service);
+        btnTestPlay = findViewById(R.id.btn_test_play);
+    }
+
+    private void loadSavedConfig() {
+        String savedPath = sharedPreferences.getString(KEY_SCORE_PATH, "");
+        if (!TextUtils.isEmpty(savedPath)) {
+            tvScorePath.setText("当前曲谱: \n" + savedPath);
+        } else {
+            tvScorePath.setText("当前曲谱: 未选择");
         }
+    }
 
-        // 2. 创建主界面
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(50, 200, 50, 50);
-
-        Button btnPickFile = new Button(this);
-        btnPickFile.setText("📁 选择本地 .json 乐谱文件");
-        btnPickFile.setTextSize(18);
-        layout.addView(btnPickFile);
-        setContentView(layout);
-
-        // 3. 点击按钮去选择文件
-        btnPickFile.setOnClickListener(v -> {
-            if (PianoService.instance == null) {
-                Toast.makeText(this, "无障碍未连接，请去设置里重新开启！", Toast.LENGTH_SHORT).show();
-                return;
+    private void setupListeners() {
+        btnAccessibility.setOnClickListener(v -> {
+            if (!isAccessibilityServiceEnabled()) {
+                Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+                startActivity(intent);
+                Toast.makeText(this, "请在列表中找到【自动弹琴小助手】并开启服务", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "无障碍服务已经处于开启状态！", Toast.LENGTH_SHORT).show();
             }
+        });
+
+        btnSelectScore.setOnClickListener(v -> {
             Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
             intent.setType("*/*");
-            startActivityForResult(intent, 1001);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            startActivityForResult(intent, REQUEST_CODE_SELECT_FILE);
+        });
+
+        btnStartService.setOnClickListener(v -> {
+            if (!isAccessibilityServiceEnabled()) {
+                Toast.makeText(this, "请先开启上方无障碍服务哦", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            String currentPath = sharedPreferences.getString(KEY_SCORE_PATH, "");
+            if (TextUtils.isEmpty(currentPath)) {
+                Toast.makeText(this, "请先选择曲谱文件", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Toast.makeText(this, "准备就绪，可以开始弹琴啦！", Toast.LENGTH_SHORT).show();
+        });
+
+        btnTestPlay.setOnClickListener(v -> {
+            // 【修改点】先检查有没有选择文件
+            String currentPath = sharedPreferences.getString(KEY_SCORE_PATH, "");
+            if (TextUtils.isEmpty(currentPath)) {
+                Toast.makeText(this, "请先选择曲谱文件", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent intent = new Intent(MainActivity.this, TestPlayActivity.class);
+            startActivity(intent);
         });
     }
-//ll
-    // 4. 接收选中的文件并读取内容
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == 1001 && resultCode == RESULT_OK && data != null) {
-            Uri uri = data.getData();
-            try {
-                InputStream is = getContentResolver().openInputStream(uri);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-                StringBuilder sb = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    sb.append(line);
+
+    private void updateAccessibilityButtonState() {
+        if (isAccessibilityServiceEnabled()) {
+            btnAccessibility.setText("无障碍服务: 已开启 (点击可去系统关闭)");
+            btnAccessibility.setTextColor(0xFF009900);
+        } else {
+            btnAccessibility.setText("点击前往开启无障碍服务");
+            btnAccessibility.setTextColor(0xFFFF0000);
+        }
+    }
+
+    private boolean isAccessibilityServiceEnabled() {
+        int accessibilityEnabled = 0;
+        final String service = getPackageName() + "/" + PianoService.class.getCanonicalName();
+        try {
+            accessibilityEnabled = Settings.Secure.getInt(
+                    getApplicationContext().getContentResolver(),
+                    android.provider.Settings.Secure.ACCESSIBILITY_ENABLED);
+        } catch (Settings.SettingNotFoundException e) {
+            e.printStackTrace();
+        }
+        TextUtils.SimpleStringSplitter mStringColonSplitter = new TextUtils.SimpleStringSplitter(':');
+
+        if (accessibilityEnabled == 1) {
+            String settingValue = Settings.Secure.getString(
+                    getApplicationContext().getContentResolver(),
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+            if (settingValue != null) {
+                mStringColonSplitter.setString(settingValue);
+                while (mStringColonSplitter.hasNext()) {
+                    String accessibilityService = mStringColonSplitter.next();
+                    if (accessibilityService.equalsIgnoreCase(service)) {
+                        return true;
+                    }
                 }
-                reader.close();
+            }
+        }
+        return false;
+    }
 
-                String jsonScore = sb.toString();
-                // 更新服务里的乐谱
-                PianoService.instance.updateScore(jsonScore);
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_CODE_SELECT_FILE && resultCode == RESULT_OK) {
+            if (data != null && data.getData() != null) {
+                Uri uri = data.getData();
+                String pathString = uri.toString();
 
-                // 【新增】跳转到测试播放界面
-                Intent testIntent = new Intent(this, TestPlayActivity.class);
-                testIntent.putExtra("json_score", jsonScore);
-                startActivity(testIntent);
-
-                Toast.makeText(this, "✅ 加载成功！已进入测试模式", Toast.LENGTH_SHORT).show();
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                Toast.makeText(this, "❌ 读取失败，请确保是正确的 json 文本", Toast.LENGTH_SHORT).show();
+                sharedPreferences.edit().putString(KEY_SCORE_PATH, pathString).apply();
+                tvScorePath.setText("当前曲谱: \n" + pathString);
+                Toast.makeText(this, "曲谱路径已保存！", Toast.LENGTH_SHORT).show();
             }
         }
     }

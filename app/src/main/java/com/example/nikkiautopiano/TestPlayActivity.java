@@ -1,20 +1,31 @@
 package com.example.nikkiautopiano;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 import org.json.JSONArray;
 import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -22,37 +33,67 @@ public class TestPlayActivity extends AppCompatActivity {
 
     private Map<String, Button> btnMap = new HashMap<>();
     private boolean isTesting = false;
-    private String jsonScore;
+    private String jsonScore = "[]";
     private TextView statusTv;
 
-    // 【新增】音频播放引擎和音频映射表
+    // 【修改】只保留 TextView，不需要 ScrollView 了
+    private TextView lyricTv;
+
     private SoundPool soundPool;
     private Map<String, Integer> soundMap = new HashMap<>();
     private boolean isSoundLoaded = false;
 
+    private static final String PREF_NAME = "PianoAppConfig";
+    private static final String KEY_SCORE_PATH = "ScorePath";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        jsonScore = getIntent().getStringExtra("json_score");
 
-        // 【新增】初始化 SoundPool
+        // 【新增】强制锁定当前界面为竖屏
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+        loadScoreData();
         initSoundPool();
 
-        // --- 以下为原有 UI 代码 ---
+        // 1. 根布局
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.parseColor("#121212"));
-        root.setGravity(Gravity.CENTER);
+        root.setGravity(Gravity.CENTER_HORIZONTAL);
 
+        // 2. 状态提示文本
         statusTv = new TextView(this);
         statusTv.setText("加载音效中...");
         statusTv.setTextColor(Color.WHITE);
-        statusTv.setPadding(0, 50, 0, 50);
+        statusTv.setPadding(0, 30, 0, 10);
         root.addView(statusTv);
 
+        // 3. 【修改】中间的单行歌词展示区（覆盖模式）
+        lyricTv = new TextView(this);
+        // 使用 weight=1.0f，让歌词区域占据屏幕中间所有剩余的空间
+        LinearLayout.LayoutParams lyricParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, 0, 1.0f);
+        lyricParams.setMargins(40, 10, 40, 30);
+        lyricTv.setLayoutParams(lyricParams);
+
+        // 设置居中显示、大字体、醒目的颜色
+        lyricTv.setGravity(Gravity.CENTER);
+        lyricTv.setBackgroundColor(Color.parseColor("#222222"));
+        lyricTv.setTextColor(Color.parseColor("#00E676"));
+        lyricTv.setTextSize(24f);
+        lyricTv.setText("等待播放...\n(歌词将在此处显示)");
+
+        root.addView(lyricTv);
+
+        // 4. 底部的钢琴键盘
         GridLayout gridLayout = new GridLayout(this);
         gridLayout.setColumnCount(7);
         gridLayout.setRowCount(3);
+        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        gridParams.gravity = Gravity.CENTER_HORIZONTAL;
+        gridLayout.setLayoutParams(gridParams);
 
         String[] rows = {"T", "M", "B"};
         for (int r = 0; r < 3; r++) {
@@ -62,14 +103,19 @@ public class TestPlayActivity extends AppCompatActivity {
                 btnMap.put(keyName, btn);
                 gridLayout.addView(btn);
 
-                // 【新增】尝试加载对应的音频文件 (比如 t1.mp3)
                 loadSoundForKey(keyName);
             }
         }
         root.addView(gridLayout);
 
+        // 5. 播放按钮
         Button startBtn = new Button(this);
         startBtn.setText("开始测试播放");
+        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        btnParams.setMargins(0, 30, 0, 50);
+        startBtn.setLayoutParams(btnParams);
+
         startBtn.setOnClickListener(v -> {
             if (!isTesting) startTest();
         });
@@ -79,7 +125,31 @@ public class TestPlayActivity extends AppCompatActivity {
         setupAliases();
     }
 
-    // 【新增】配置音频引擎，允许最多 10 个按键同时发声
+    private void loadScoreData() {
+        SharedPreferences sp = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+        String pathStr = sp.getString(KEY_SCORE_PATH, "");
+        if (!TextUtils.isEmpty(pathStr)) {
+            try {
+                jsonScore = readTextFromUri(Uri.parse(pathStr));
+            } catch (Exception e) {
+                e.printStackTrace();
+                Toast.makeText(this, "文件读取失败", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private String readTextFromUri(Uri uri) throws Exception {
+        StringBuilder stringBuilder = new StringBuilder();
+        try (InputStream inputStream = getContentResolver().openInputStream(uri);
+             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                stringBuilder.append(line);
+            }
+        }
+        return stringBuilder.toString();
+    }
+
     private void initSoundPool() {
         AudioAttributes audioAttributes = new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_GAME)
@@ -90,16 +160,13 @@ public class TestPlayActivity extends AppCompatActivity {
                 .setAudioAttributes(audioAttributes)
                 .build();
 
-        // 监听加载完成
         soundPool.setOnLoadCompleteListener((soundPool1, sampleId, status) -> {
             isSoundLoaded = true;
             runOnUiThread(() -> statusTv.setText("准备就绪！可以播放了"));
         });
     }
 
-    // 【新增】动态从 res/raw 文件夹读取对应的 mp3/ogg
     private void loadSoundForKey(String keyName) {
-        // 资源文件名必须小写，比如 "M1" 变成 "m1"
         int resId = getResources().getIdentifier(keyName.toLowerCase(), "raw", getPackageName());
         if (resId != 0) {
             int soundId = soundPool.load(this, resId, 1);
@@ -110,9 +177,9 @@ public class TestPlayActivity extends AppCompatActivity {
     private Button createPianoKey(String name) {
         Button btn = new Button(this);
         GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-        params.width = 150;
-        params.height = 150;
-        params.setMargins(10, 10, 10, 10);
+        params.width = 130;
+        params.height = 130;
+        params.setMargins(8, 8, 8, 8);
         btn.setLayoutParams(params);
         btn.setText(name);
         btn.setTextSize(12);
@@ -143,7 +210,6 @@ public class TestPlayActivity extends AppCompatActivity {
             btnMap.put(letters[i-1], targetBtn);
             btnMap.put(letters[i-1].toLowerCase(), targetBtn);
 
-            // 【新增】把别名的声音也映射过去
             if (soundMap.containsKey("M" + i)) {
                 int soundId = soundMap.get("M" + i);
                 soundMap.put(String.valueOf(i), soundId);
@@ -159,8 +225,17 @@ public class TestPlayActivity extends AppCompatActivity {
             return;
         }
 
+        if (jsonScore.equals("[]") || TextUtils.isEmpty(jsonScore)) {
+            statusTv.setText("暂无有效乐谱");
+            return;
+        }
+
         isTesting = true;
-        statusTv.setText("正在播放预览...");
+        statusTv.setText("正在播放...");
+
+        // 每次点击播放时重置歌词
+        lyricTv.setText("♪ ...");
+
         new Thread(() -> {
             try {
                 JSONArray jsonArray = new JSONArray(jsonScore);
@@ -174,6 +249,14 @@ public class TestPlayActivity extends AppCompatActivity {
                     JSONArray durations = step.optJSONArray("durations");
                     int defaultDuration = step.optInt("duration", 80);
                     int delay = step.optInt("delay", 400);
+
+                    // 读取当前步的歌词
+                    String lyricText = step.optString("lyric", step.optString("lyrics", ""));
+
+                    // 【核心修改】如果这一行有歌词，直接 setText 覆盖掉之前的文字
+                    if (!TextUtils.isEmpty(lyricText)) {
+                        runOnUiThread(() -> lyricTv.setText(lyricText));
+                    }
 
                     if (notes != null) {
                         for (int j = 0; j < notes.length(); j++) {
@@ -192,10 +275,13 @@ public class TestPlayActivity extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 e.printStackTrace();
+                runOnUiThread(() -> Toast.makeText(TestPlayActivity.this, "JSON格式解析失败，请检查文件", Toast.LENGTH_SHORT).show());
             }
             runOnUiThread(() -> {
                 isTesting = false;
                 statusTv.setText("播放结束");
+                // 播放结束后给出提示
+                lyricTv.setText("--- 播放完毕 ---");
             });
         }).start();
     }
@@ -204,7 +290,6 @@ public class TestPlayActivity extends AppCompatActivity {
         Button btn = btnMap.get(note);
         if (btn == null || note.equals("0")) return;
 
-        // 【新增】播放声音！(参数：音频ID, 左声道音量, 右声道音量, 优先级, 循环次数, 播放速度)
         if (soundMap.containsKey(note)) {
             soundPool.play(soundMap.get(note), 1.0f, 1.0f, 1, 0, 1.0f);
         }
@@ -220,7 +305,6 @@ public class TestPlayActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         isTesting = false;
-        // 【新增】退出时释放音频资源，防止内存泄漏
         if (soundPool != null) {
             soundPool.release();
             soundPool = null;
