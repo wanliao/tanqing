@@ -1,0 +1,65 @@
+11[
+  {"notes":["B1","M3"],"durations":[600,220],"delay":280},
+  {"notes":["M5"],"durations":[260],"delay":280},
+  {"notes":["M5"],"durations":[420],"delay":420},
+  {"notes":["M6"],"durations":[240],"delay":280},
+
+  {"notes":["B5","M5"],"durations":[600,260],"delay":280},
+  {"notes":["M3"],"durations":[240],"delay":280},
+  {"notes":["M1"],"durations":[260],"delay":280},
+  {"notes":["M1"],"durations":[260],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+
+  {"notes":["B1","M3"],"durations":[600,260],"delay":280},
+  {"notes":["M3"],"durations":[300],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+  {"notes":["M1"],"durations":[300],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+  {"notes":["0"],"durations":[0],"delay":280},
+
+  {"notes":["B1","M3"],"durations":[600,220],"delay":280},
+  {"notes":["M5"],"durations":[260],"delay":280},
+  {"notes":["M5"],"durations":[420],"delay":420},
+  {"notes":["M6"],"durations":[240],"delay":280},
+
+  {"notes":["B5","M5"],"durations":[600,260],"delay":280},
+  {"notes":["M3"],"durations":[240],"delay":280},
+  {"notes":["M1"],"durations":[260],"delay":280},
+  {"notes":["M1"],"durations":[260],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+
+  {"notes":["B1","M3"],"durations":[600,260],"delay":280},
+  {"notes":["M3"],"durations":[300],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+  {"notes":["M1"],"durations":[400],"delay":280},
+  {"notes":["0"],"durations":[0],"delay":280},
+
+  {"notes":["B4","M4"],"durations":[700,260],"delay":280},
+  {"notes":["M4"],"durations":[260],"delay":280},
+  {"notes":["M4"],"durations":[260],"delay":280},
+  {"notes":["M6"],"durations":[520],"delay":560},
+
+  {"notes":["B5","M5"],"durations":[600,260],"delay":280},
+  {"notes":["M5"],"durations":[260],"delay":280},
+  {"notes":["M3"],"durations":[260],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+  {"notes":["0"],"durations":[0],"delay":280},
+
+  {"notes":["B1","M3"],"durations":[600,240],"delay":280},
+  {"notes":["M5"],"durations":[280],"delay":280},
+  {"notes":["M5"],"durations":[420],"delay":420},
+  {"notes":["M6"],"durations":[240],"delay":280},
+
+  {"notes":["B5","M5"],"durations":[600,260],"delay":280},
+  {"notes":["M3"],"durations":[240],"delay":280},
+  {"notes":["M1"],"durations":[260],"delay":280},
+  {"notes":["M1"],"durations":[260],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+
+  {"notes":["B1","M3"],"durations":[600,260],"delay":280},
+  {"notes":["M3"],"durations":[300],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+  {"notes":["M2"],"durations":[260],"delay":280},
+  {"notes":["M1"],"durations":[700],"delay":700}
+]
