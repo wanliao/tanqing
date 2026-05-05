@@ -165,10 +165,18 @@ public class TestPlayActivity extends AppCompatActivity {
         }
         return result == 0 ? 80 : result;
     }
+    // 【修改版】改成从 Android/data/包名/files 目录读取曲谱
     private String readTextFromAssets(String fileName) throws Exception {
         StringBuilder stringBuilder = new StringBuilder();
-        try (InputStream inputStream = getAssets().open("zhiyuan/" + fileName);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+
+        // 去我们刚才统一的本地目录找
+        java.io.File localFile = new java.io.File(getExternalFilesDir(null), fileName);
+        if (!localFile.exists()) {
+            throw new java.io.FileNotFoundException("文件丢失: " + fileName);
+        }
+
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(localFile);
+             java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(fis))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 stringBuilder.append(line);

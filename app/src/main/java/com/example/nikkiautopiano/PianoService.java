@@ -29,7 +29,8 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Random;
+import java.util.Random;import java.io.File;
+import java.io.FileInputStream;
 
 public class PianoService extends AccessibilityService {
 
@@ -292,12 +293,18 @@ public class PianoService extends AccessibilityService {
         }).start();
     }
 
-    // 【新增】万能读取方法，用于将 Uri 转换成真实的 JSON 字符串
+    // 【终极简化版】统一从 Android/data/包名/files 目录读取曲谱
     private String readTextFromAssets(String fileName) throws Exception {
         StringBuilder stringBuilder = new StringBuilder();
-        // 直接从 assets/zhiyuan/ 拼接文件名进行读取
-        try (InputStream inputStream = getAssets().open("zhiyuan/" + fileName);
-             BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+
+        // 直接去本地目录找
+        File localFile = new File(getExternalFilesDir(null), fileName);
+        if (!localFile.exists()) {
+            throw new java.io.FileNotFoundException("文件丢失: " + fileName);
+        }
+
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(localFile);
+             java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(fis))) {
             String line;
             while ((line = reader.readLine()) != null) {
                 stringBuilder.append(line);
@@ -305,7 +312,6 @@ public class PianoService extends AccessibilityService {
         }
         return stringBuilder.toString();
     }
-
 
 
     public void playChord(List<float[]> points, List<Integer> durations) {
